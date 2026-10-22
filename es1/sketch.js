@@ -1,6 +1,6 @@
 // Illusione: anelli concentrici di chevron (originale, sul principio del
 //   Café Wall: file di elementi uguali sfalsate di metà passo)
-// Fonte: https://www.dreamstime.com/illustration/concentric-circles-icon.html
+// Fonte: https://it.dreamstime.com/illusione-ottica-geometrica-motivo-cerchio-bianco-e-nero-vettore-eps-image171799965
 // Regola: ogni fascia è un anello di numChevron chevron a V, tutti uguali dentro
 //   la stessa fascia; verso il centro l'anello si rimpicciolisce di un fattore
 //   costante (rapportoFasce) e i chevron con lui, restando in numero uguale:
