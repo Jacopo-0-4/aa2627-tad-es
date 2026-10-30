@@ -6,10 +6,14 @@
 //   costante (rapportoFasce) e i chevron con lui, restando in numero uguale:
 //   quindi più piccoli e più fitti. Le fasce vicine hanno i chevron rivolti in
 //   senso opposto e scorrono una avanti e l'altra indietro.
+// Movimento: tutte le fasce scendono verso il centro di un fattore
+//   rapportoFasce a ogni passo, mentre le più esterne entrano dal bordo: così
+//   il motivo sembra un tunnel senza fondo. Il ciclo riparte dopo due fasce,
+//   perché lo spostamento di due fasce conserva l'orientamento alternato.
 // Parametri critici:
 //   ampiezzaOscillazione: lo sfasamento fra fasce adiacenti, l'equivalente
 //     dello sfasamento delle file di mattoni nel Café Wall.
-//     effetto più evidente con 0.065 (fasce sfalsate di 7,5 gradi, metà del
+//     effetto più evidente con 0.5 (fasce sfalsate di 7,5 gradi, metà del
 //     passo angolare di 15: i chevron di una fascia cadono fra quelli della
 //     successiva),
 //     nessun effetto con 0 (fasce allineate: anelli concentrici regolari);
@@ -23,11 +27,11 @@
 //     la V si scompone in blocchi e le fasce diventano una griglia di rettangoli).
 
 // Larghezza e altezza della tela
-let larghezzaTela = 800;
+let larghezzaTela = 600;
 let altezzaTela = 600;
 
 // Raggio della fascia più esterna, in pixel
-let raggioEsterno = 280;
+let raggioEsterno = 260;
 // Quanti chevron ci sono in ogni fascia
 let numChevron = 24;
 // Grandezza del chevron rispetto al raggio della sua fascia
@@ -37,8 +41,7 @@ let altezzaChevron = 0.3;
 // Ogni fascia interna tocca quella esterna: il rapporto fra i due raggi è
 // quello che porta i bordi delle due fasce a incontrarsi
 let rapportoFasce = (1 - rapportoChevron / 2) / (1 + rapportoChevron / 2);
-// Raggio a cui si ferma la fascia più interna: sotto questo valore
-// il motivo continua rimpicciolendosi fino a sparire nel centro
+// Raggio entro cui la fascia più interna scompare nel centro mentre scorre
 let raggioMinimo = 3;
 // Quante fasce servono per scendere da raggioEsterno a raggioMinimo
 // (Math.ceil e Math.log funzionano già prima che p5 carichi)
@@ -46,9 +49,17 @@ let numFasce = Math.ceil(Math.log(raggioMinimo / raggioEsterno) / Math.log(rappo
 // Radianti di oscillazione della fascia rispetto alla posizione di riposo:
 // più è grande, più gli chevron scorrono lontano avanti e indietro;
 // 0.065 è un quarto del passo angolare, cioè metà passo fra fasce vicine
-let ampiezzaOscillazione = 0.065;
+let ampiezzaOscillazione = 0.5;
 // Radianti di oscillazione per fotogramma: più è piccolo, più è lento
-let velocitaOscillazione = 0.06;
+let velocitaOscillazione = 0.007;
+// Fasce che scorrono verso il centro in un fotogramma: più è piccolo, più
+// lento il tunnel. Il ciclo completo dura due fasce
+let velocitaScorrimento = 0.001;
+// Raggio dell'angolo della tela: le fasce esterne devono arrivare fin lì
+let raggioAngolo = Math.sqrt(Math.pow(larghezzaTela / 2, 2) + Math.pow(altezzaTela / 2, 2));
+// Quante fasce disegnare oltre raggioEsterno per coprire gli angoli anche
+// quando, scorrendo, le fasce si rimpiccioliscono; il +2 copre il ciclo
+let fasceEsterne = Math.ceil(Math.log(raggioAngolo / raggioEsterno) / Math.log(1 / rapportoFasce)) + 2;
 
 function setup() {
   createCanvas(larghezzaTela, altezzaTela);
@@ -59,15 +70,17 @@ function draw() {
   translate(width / 2, height / 2);
 
   let oscillazione = sin(frameCount * velocitaOscillazione) * ampiezzaOscillazione;
-  let raggio = raggioEsterno;
-  for (let i = 0; i < numFasce; i++) {
+  // posizione del ciclo di scorrimento, da 0 a 2 fasce
+  let scorrimento = (frameCount * velocitaScorrimento) % 2;
+  for (let i = -fasceEsterne; i <= numFasce + 2; i++) {
+    // il raggio cala a ogni passo: le fasce scendono verso il centro
+    let raggio = raggioEsterno * Math.pow(rapportoFasce, i + scorrimento);
     // fasce adiacenti in senso opposto: una avanza, l'altra arretra
     let verso = 1;
-    if (i % 2 === 1) {
+    if (((i % 2) + 2) % 2 === 1) {
       verso = -1;
     }
     disegnaFascia(raggio, oscillazione * verso, verso);
-    raggio = raggio * rapportoFasce;
   }
 }
 
@@ -96,12 +109,12 @@ function disegnaFascia(raggio, oscillazione, verso) {
     rotate(HALF_PI * verso);
     // il chevron è una banda a forma di V, con le estremità tagliate piatte
     beginShape();
-    vertex(-grandezza / 2, h);
+    vertex(-grandezza / 1.8, h);
     vertex(0, -h);
-    vertex(grandezza / 2, h);
-    vertex(grandezza / 2, h + scarto);
+    vertex(grandezza / 1.8, h);
+    vertex(grandezza / 1.8, h + scarto);
     vertex(0, -h + scarto);
-    vertex(-grandezza / 2, h + scarto);
+    vertex(-grandezza / 1.8, h + scarto);
     endShape(CLOSE);
     pop();
   }
