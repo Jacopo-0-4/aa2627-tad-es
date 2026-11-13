@@ -1,0 +1,40 @@
+body {
+  margin: 0;
+  padding: 16px;
+  background: #f3efe9;
+  font-family: Arial, sans-serif;
+}
+
+#quadro {
+  position: relative;
+  width: min(600px, 100%);
+  margin: 0 auto;
+}
+
+.legenda {
+  position: absolute;
+  z-index: 1;
+  bottom: 16px;
+  left: 50%;
+  margin: 0;
+  padding: 10px 18px;
+  transform: translateX(-50%);
+  border-radius: 8px;
+  background: #fff;
+  color: #000;
+  font-size: 20px;
+  font-weight: bold;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.legenda[hidden] {
+  display: none;
+}
+
+canvas {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto;
+}
