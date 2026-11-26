@@ -4,12 +4,14 @@
 // con tre colori distinti scelti a caso da una palette di tinte fisse.
 
 const latoTela = 600;
-const cellePerLatoIniziali = 30;
-const incrementoCelle = 3;
-const limiteCellePerLato = 48;
-const passoStrade = 6;
-const probabilitaColoreStrada = 0.88;
-const probabilitaColoreSfondo = 0.16;
+const cellePerLatoIniziali = 60;
+const cellePerLatoCampoIniziale = cellePerLatoIniziali * 3;
+const margineCampo = cellePerLatoIniziali;
+const incrementoCelle = 6;
+const limiteCellePerLato = 72;
+const probabilitaColoreStrada = 0.78;
+const probabilitaColoreSfondo = 0.04;
+const semeComposizioneIniziale = 2627;
 const variazioneScalaMinima = 0.05;
 const variazioneScalaMassima = 0.2;
 const variazioneQuadratinoMinima = 0.08;
@@ -19,9 +21,18 @@ const quadratinoMassimo = 1.5;
 const scalaMinima = 0.5;
 const scalaMassima = 1.5;
 const rotazioneMassimaCasualeGradi = 360;
-const attesaResetMillisecondi = 10000;
 const parolaObiettivo = "jacopo";
 const combinazioniCasualiPrimaDellaParola = 3;
+
+const righeStradeIniziali = [2, 6, 10, 14, 18, 23, 28, 33, 38, 43, 48, 53, 58];
+const colonneStradeIniziali = [1, 4, 8, 13, 17, 22, 27, 31, 36, 41, 46, 50, 55, 59];
+const areeGeometricheIniziali = [
+  { x: 16, y: 3, lato: 7, bordo: "rosso", centro: "bianco", latoCentro: 3 },
+  { x: 42, y: 14, lato: 8, bordo: "blu", centro: "giallo", latoCentro: 3 },
+  { x: 10, y: 30, lato: 6, bordo: "rosso", centro: "bianco", latoCentro: 2 },
+  { x: 23, y: 33, lato: 7, bordo: "blu", centro: "giallo", latoCentro: 3 },
+  { x: 47, y: 34, lato: 7, bordo: "rosso", centro: "bianco", latoCentro: 3 }
+];
 
 const coloriDisponibili = {
   arancione: [28, 90, 55],
@@ -37,13 +48,17 @@ const coloriDisponibili = {
 let cellePerLato = cellePerLatoIniziali;
 let mosaico = [];
 let mosaicoIniziale = [];
+let mosaicoCampo = [];
+let mosaicoCampoIniziale = [];
 let dimensioniQuadratini = [];
 let dimensioniQuadratiniIniziali = [];
+let dimensioniQuadratiniCampo = [];
+let dimensioniQuadratiniCampoIniziali = [];
 let palette;
+let graficaCampo;
 let coloriAttivi = ["giallo", "rosso", "blu"];
 let scalaComposizione = 1;
 let rotazione = 0;
-let timerReset = null;
 let sequenzaObiettivo = "";
 let lettereInserite = 0;
 let combinazioniCasualiGenerate = 0;
@@ -59,9 +74,17 @@ function setup() {
   elementoSequenzaLegenda = document.getElementById("sequenza-legenda");
   generaSequenzaObiettivo();
   aggiornaPalette();
+  randomSeed(semeComposizioneIniziale);
   generaMosaico();
   mosaicoIniziale = mosaico.map((riga) => riga.slice());
   dimensioniQuadratiniIniziali = dimensioniQuadratini.map((riga) => riga.slice());
+  generaMosaicoCampo();
+  mosaicoCampoIniziale = mosaicoCampo.map((riga) => riga.slice());
+  dimensioniQuadratiniCampoIniziali =
+    dimensioniQuadratiniCampo.map((riga) => riga.slice());
+  graficaCampo = createGraphics(latoTela * 3, latoTela * 3);
+  graficaCampo.pixelDensity(1);
+  disegnaMosaicoCampo();
 }
 
 function generaSequenzaObiettivo() {
@@ -127,6 +150,8 @@ function draw() {
   translate(-width / 2, -height / 2);
   noStroke();
 
+  image(graficaCampo, -latoTela, -latoTela);
+
   let latoCella = latoTela / cellePerLato;
   for (let y = 0; y < cellePerLato; y++) {
     for (let x = 0; x < cellePerLato; x++) {
@@ -144,19 +169,73 @@ function draw() {
   pop();
 }
 
+function generaMosaicoCampo() {
+  mosaicoCampo = [];
+  dimensioniQuadratiniCampo = [];
+
+  for (let y = 0; y < cellePerLatoCampoIniziale; y++) {
+    let riga = [];
+    let rigaDimensioni = [];
+    for (let x = 0; x < cellePerLatoCampoIniziale; x++) {
+      let xComposizione = x - margineCampo;
+      let yComposizione = y - margineCampo;
+      let dentroComposizione =
+        xComposizione >= 0 &&
+        xComposizione < cellePerLatoIniziali &&
+        yComposizione >= 0 &&
+        yComposizione < cellePerLatoIniziali;
+
+      if (dentroComposizione) {
+        riga.push(mosaico[yComposizione][xComposizione]);
+        rigaDimensioni.push(dimensioniQuadratini[yComposizione][xComposizione]);
+      } else {
+        let sullaStrada =
+          colonneStradeIniziali.includes(x % cellePerLatoIniziali) ||
+          righeStradeIniziali.includes(y % cellePerLatoIniziali);
+        let probabilita = sullaStrada
+          ? probabilitaColoreStrada
+          : probabilitaColoreSfondo;
+        riga.push(random() < probabilita ? scegliColoreMosaico() : "bianco");
+        rigaDimensioni.push(1);
+      }
+    }
+    mosaicoCampo.push(riga);
+    dimensioniQuadratiniCampo.push(rigaDimensioni);
+  }
+}
+
+function disegnaMosaicoCampo() {
+  graficaCampo.colorMode(HSL, 360, 100, 100);
+  graficaCampo.noStroke();
+  let celleCampo = mosaicoCampo.length;
+  let latoCella = latoTela * 3 / celleCampo;
+
+  for (let y = 0; y < celleCampo; y++) {
+    for (let x = 0; x < celleCampo; x++) {
+      graficaCampo.fill(palette[mosaicoCampo[y][x]]);
+      let latoQuadratino = latoCella * dimensioniQuadratiniCampo[y][x];
+      let margine = (latoCella - latoQuadratino) / 2;
+      graficaCampo.rect(
+        x * latoCella + margine,
+        y * latoCella + margine,
+        latoQuadratino + 0.2,
+        latoQuadratino + 0.2
+      );
+    }
+  }
+}
+
 function generaMosaico() {
   mosaico = [];
   dimensioniQuadratini = [];
-  let scartoVerticale = floor(random(passoStrade));
-  let scartoOrizzontale = floor(random(passoStrade));
 
   for (let y = 0; y < cellePerLato; y++) {
     let riga = [];
     let rigaDimensioni = [];
     for (let x = 0; x < cellePerLato; x++) {
       let sullaStrada =
-        x % passoStrade === scartoVerticale ||
-        y % passoStrade === scartoOrizzontale;
+        colonneStradeIniziali.includes(x) ||
+        righeStradeIniziali.includes(y);
       let probabilita = sullaStrada
         ? probabilitaColoreStrada
         : probabilitaColoreSfondo;
@@ -166,37 +245,58 @@ function generaMosaico() {
     mosaico.push(riga);
     dimensioniQuadratini.push(rigaDimensioni);
   }
+
+  for (let area of areeGeometricheIniziali) {
+    let fine = area.lato - 1;
+    for (let y = 0; y < area.lato; y++) {
+      for (let x = 0; x < area.lato; x++) {
+        let sulBordo = x === 0 || x === fine || y === 0 || y === fine;
+        mosaico[area.y + y][area.x + x] = sulBordo ? area.bordo : "bianco";
+      }
+    }
+
+    let inizioCentro = floor((area.lato - area.latoCentro) / 2);
+    for (let y = 0; y < area.latoCentro; y++) {
+      for (let x = 0; x < area.latoCentro; x++) {
+        mosaico[area.y + inizioCentro + y][area.x + inizioCentro + x] =
+          area.centro;
+      }
+    }
+  }
 }
 
 function aumentaDettaglioMosaico() {
-  let cellePrecedenti = cellePerLato;
-  let mosaicoPrecedente = mosaico;
-  let dimensioniPrecedenti = dimensioniQuadratini;
-  cellePerLato = min(cellePerLato + incrementoCelle, limiteCellePerLato);
+  let nuoveCellePerLato = min(cellePerLato + incrementoCelle, limiteCellePerLato);
 
-  if (cellePerLato === cellePrecedenti) {
+  if (nuoveCellePerLato === cellePerLato) {
     return;
   }
 
-  let nuovoMosaico = [];
-  let nuoveDimensioni = [];
-  for (let y = 0; y < cellePerLato; y++) {
+  mosaico = ridimensionaMatrice(mosaico, nuoveCellePerLato);
+  dimensioniQuadratini =
+    ridimensionaMatrice(dimensioniQuadratini, nuoveCellePerLato);
+  mosaicoCampo = ridimensionaMatrice(mosaicoCampo, nuoveCellePerLato * 3);
+  dimensioniQuadratiniCampo =
+    ridimensionaMatrice(dimensioniQuadratiniCampo, nuoveCellePerLato * 3);
+  cellePerLato = nuoveCellePerLato;
+  disegnaMosaicoCampo();
+}
+
+function ridimensionaMatrice(matrice, nuovaDimensione) {
+  let dimensionePrecedente = matrice.length;
+  let nuovaMatrice = [];
+
+  for (let y = 0; y < nuovaDimensione; y++) {
     let riga = [];
-    let rigaDimensioni = [];
-    let yPrecedente = floor(y * cellePrecedenti / cellePerLato);
-
-    for (let x = 0; x < cellePerLato; x++) {
-      let xPrecedente = floor(x * cellePrecedenti / cellePerLato);
-      riga.push(mosaicoPrecedente[yPrecedente][xPrecedente]);
-      rigaDimensioni.push(dimensioniPrecedenti[yPrecedente][xPrecedente]);
+    let yPrecedente = floor(y * dimensionePrecedente / nuovaDimensione);
+    for (let x = 0; x < nuovaDimensione; x++) {
+      let xPrecedente = floor(x * dimensionePrecedente / nuovaDimensione);
+      riga.push(matrice[yPrecedente][xPrecedente]);
     }
-
-    nuovoMosaico.push(riga);
-    nuoveDimensioni.push(rigaDimensioni);
+    nuovaMatrice.push(riga);
   }
 
-  mosaico = nuovoMosaico;
-  dimensioniQuadratini = nuoveDimensioni;
+  return nuovaMatrice;
 }
 
 function scegliColoreMosaico() {
@@ -239,26 +339,52 @@ function ripristinaStatoIniziale() {
   cellePerLato = cellePerLatoIniziali;
   mosaico = mosaicoIniziale.map((riga) => riga.slice());
   dimensioniQuadratini = dimensioniQuadratiniIniziali.map((riga) => riga.slice());
+  mosaicoCampo = mosaicoCampoIniziale.map((riga) => riga.slice());
+  dimensioniQuadratiniCampo =
+    dimensioniQuadratiniCampoIniziali.map((riga) => riga.slice());
   coloriAttivi = ["giallo", "rosso", "blu"];
   scalaComposizione = 1;
   rotazione = 0;
   aggiornaPalette();
+  disegnaMosaicoCampo();
   generaSequenzaObiettivo();
 }
 
+function mousePressed() {
+  let clicDentroCanvas =
+    mouseX >= 0 && mouseX <= width && mouseY >= 0 && mouseY <= height;
+  let parolaCompletata = lettereInserite === sequenzaObiettivo.length;
+
+  if (clicDentroCanvas && parolaCompletata) {
+    ripristinaStatoIniziale();
+  }
+}
+
 function spostaQuadratiniColorati() {
+  let nuovoCampo = spostaQuadratiniInMatrice(
+    mosaicoCampo,
+    dimensioniQuadratiniCampo
+  );
+  mosaicoCampo = nuovoCampo.mosaico;
+  dimensioniQuadratiniCampo = nuovoCampo.dimensioni;
+  sincronizzaComposizioneDalCampo();
+  disegnaMosaicoCampo();
+}
+
+function spostaQuadratiniInMatrice(matrice, dimensioni) {
   let quadratini = [];
   let posizioniDisponibili = [];
+  let latoMatrice = matrice.length;
 
-  for (let y = 0; y < cellePerLato; y++) {
-    for (let x = 0; x < cellePerLato; x++) {
+  for (let y = 0; y < latoMatrice; y++) {
+    for (let x = 0; x < latoMatrice; x++) {
       posizioniDisponibili.push({ x, y });
-      if (mosaico[y][x] !== "bianco") {
+      if (matrice[y][x] !== "bianco") {
         quadratini.push({
           x,
           y,
-          colore: mosaico[y][x],
-          dimensione: dimensioniQuadratini[y][x]
+          colore: matrice[y][x],
+          dimensione: dimensioni[y][x]
         });
       }
     }
@@ -281,29 +407,64 @@ function spostaQuadratiniColorati() {
     }
   }
 
-  mosaico = Array.from({ length: cellePerLato }, () =>
-    Array(cellePerLato).fill("bianco")
+  let nuovoMosaico = Array.from({ length: latoMatrice }, () =>
+    Array(latoMatrice).fill("bianco")
   );
-  dimensioniQuadratini = Array.from({ length: cellePerLato }, () =>
-    Array(cellePerLato).fill(1)
+  let nuoveDimensioni = Array.from({ length: latoMatrice }, () =>
+    Array(latoMatrice).fill(1)
   );
 
   for (let i = 0; i < quadratini.length; i++) {
     let posizione = posizioniDisponibili[i];
     let quadratino = quadratini[i];
-    mosaico[posizione.y][posizione.x] = quadratino.colore;
-    dimensioniQuadratini[posizione.y][posizione.x] = quadratino.dimensione;
+    nuovoMosaico[posizione.y][posizione.x] = quadratino.colore;
+    nuoveDimensioni[posizione.y][posizione.x] = quadratino.dimensione;
+  }
+
+  return { mosaico: nuovoMosaico, dimensioni: nuoveDimensioni };
+}
+
+function sincronizzaComposizioneDalCampo() {
+  let latoComposizione = mosaicoCampo.length / 3;
+  let inizioComposizione = latoComposizione;
+  cellePerLato = latoComposizione;
+  mosaico = [];
+  dimensioniQuadratini = [];
+
+  for (let y = 0; y < latoComposizione; y++) {
+    let riga = [];
+    let rigaDimensioni = [];
+    for (let x = 0; x < latoComposizione; x++) {
+      riga.push(mosaicoCampo[inizioComposizione + y][inizioComposizione + x]);
+      rigaDimensioni.push(
+        dimensioniQuadratiniCampo[inizioComposizione + y][inizioComposizione + x]
+      );
+    }
+    mosaico.push(riga);
+    dimensioniQuadratini.push(rigaDimensioni);
   }
 }
 
-function programmaReset() {
-  if (timerReset !== null) {
-    clearTimeout(timerReset);
+function modificaDimensioneQuadratini() {
+  for (let y = 0; y < mosaicoCampo.length; y++) {
+    for (let x = 0; x < mosaicoCampo.length; x++) {
+      if (mosaicoCampo[y][x] !== "bianco") {
+        let direzione = random() < 0.5 ? -1 : 1;
+        let variazione = random(
+          variazioneQuadratinoMinima,
+          variazioneQuadratinoMassima
+        );
+        dimensioniQuadratiniCampo[y][x] = constrain(
+          dimensioniQuadratiniCampo[y][x] + direzione * variazione,
+          quadratinoMinimo,
+          quadratinoMassimo
+        );
+      }
+    }
   }
-  timerReset = setTimeout(() => {
-    timerReset = null;
-    ripristinaStatoIniziale();
-  }, attesaResetMillisecondi);
+
+  sincronizzaComposizioneDalCampo();
+  disegnaMosaicoCampo();
 }
 
 function keyPressed() {
@@ -312,6 +473,7 @@ function keyPressed() {
 
   if (tasto === "j") {
     nuovaPalette();
+    disegnaMosaicoCampo();
   } else if (tasto === "a") {
     aumentaDettaglioMosaico();
   } else if (tasto === "c") {
@@ -326,23 +488,10 @@ function keyPressed() {
     if (secondaO) {
       spostaQuadratiniColorati();
     } else {
-      for (let y = 0; y < cellePerLato; y++) {
-        for (let x = 0; x < cellePerLato; x++) {
-          if (mosaico[y][x] !== "bianco") {
-            let direzione = random() < 0.5 ? -1 : 1;
-            let variazione = random(variazioneQuadratinoMinima, variazioneQuadratinoMassima);
-            dimensioniQuadratini[y][x] = constrain(
-              dimensioniQuadratini[y][x] + direzione * variazione,
-              quadratinoMinimo,
-              quadratinoMassimo
-            );
-          }
-        }
-      }
+      modificaDimensioneQuadratini();
     }
   } else if (tasto === "p") {
     rotazione += radians(random(rotazioneMassimaCasualeGradi));
   }
 
-  programmaReset();
 }
